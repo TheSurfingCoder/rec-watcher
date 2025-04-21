@@ -1,13 +1,11 @@
 require('dotenv').config();
 const axios = require('axios');
-const fs = require('fs');
-const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 
 const BASE_URL = 'https://api.rec.us/v1/locations/81cd2b08-8ea6-40ee-8c89-aeba92506576/schedule?startDate=';
-const CACHE_FILE = 'slots.json';
 
+// MongoDB Schema and Model
 const slotSchema = new mongoose.Schema({
   date: String,
   court: String,
@@ -17,10 +15,18 @@ const slotSchema = new mongoose.Schema({
 
 const Slot = mongoose.model('Slot', slotSchema);
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+// MongoDB Connection
+const clientOptions = { serverApi: { version: '1', strict: true, deprecationErrors: true } };
+
+async function connectToMongoDB() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, clientOptions);
+    console.log("✅ Connected to MongoDB!");
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error.message);
+    process.exit(1); // Exit the process if the connection fails
+  }
+}
 
 // Send email alert
 function sendEmailNotification(slots) {
@@ -143,10 +149,12 @@ async function checkForNewSlots() {
   }
 }
 
-// Run immediately on start
-checkForNewSlots();
+// Run the script
+async function run() {
+  await connectToMongoDB();
+  await checkForNewSlots();
+  await mongoose.disconnect();
+  console.log("✅ MongoDB connection closed.");
+}
 
-// Schedule to run daily at 8:05 AM PST
-cron.schedule('5 8 * * *', checkForNewSlots, {
-  timezone: 'America/Los_Angeles'
-});
+run().catch(console.error);
