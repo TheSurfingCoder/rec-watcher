@@ -3,9 +3,24 @@ const axios = require('axios');
 const fs = require('fs');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
 
 const BASE_URL = 'https://api.rec.us/v1/locations/81cd2b08-8ea6-40ee-8c89-aeba92506576/schedule?startDate=';
 const CACHE_FILE = 'slots.json';
+
+const slotSchema = new mongoose.Schema({
+  date: String,
+  court: String,
+  sport: String,
+  time: String,
+});
+
+const Slot = mongoose.model('Slot', slotSchema);
+
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 
 // Send email alert
 function sendEmailNotification(slots) {
@@ -97,6 +112,15 @@ async function fetchSlotsForNext7Days() {
   return results.flat();
 }
 
+async function fetchSlots() {
+  return await Slot.find();
+}
+
+async function saveSlots(slots) {
+  await Slot.deleteMany(); // Clear old slots
+  await Slot.insertMany(slots); // Insert new slots
+}
+
 // Main comparison and notification logic
 async function checkForNewSlots() {
   const newSlots = await fetchSlotsForNext7Days();
@@ -105,10 +129,7 @@ async function checkForNewSlots() {
     return;
   }
 
-  let oldSlots = [];
-  if (fs.existsSync(CACHE_FILE)) {
-    oldSlots = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
-  }
+  let oldSlots = await fetchSlots();
 
   const newDataString = JSON.stringify(newSlots);
   const oldDataString = JSON.stringify(oldSlots);
@@ -116,7 +137,7 @@ async function checkForNewSlots() {
   if (newDataString !== oldDataString) {
     console.log('🎉 New slots detected!');
     sendEmailNotification(newSlots);
-    fs.writeFileSync(CACHE_FILE, newDataString);
+    await saveSlots(newSlots);
   } else {
     console.log('No changes in slot availability.');
   }

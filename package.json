@@ -13,6 +13,7 @@
     "axios": "^1.8.4",
     "dotenv": "^16.5.0",
     "fs": "^0.0.1-security",
+    "mongoose": "^8.13.2",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.10.1",
     "twilio": "^5.5.2"

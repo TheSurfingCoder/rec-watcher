@@ -1,2 +1,3 @@
-need to host this somewhere
-need to clean through all my notes
+-need to host this somewhere
+-need to eventually integrate twillio
+-
