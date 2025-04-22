@@ -3,7 +3,8 @@ const axios = require('axios');
 const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 
-const BASE_URL = 'https://api.rec.us/v1/locations/81cd2b08-8ea6-40ee-8c89-aeba92506576/schedule?startDate=';
+// MongoDB connection options
+const clientOptions = { serverApi: { version: '1', strict: true, deprecationErrors: true } };
 
 // MongoDB Schema and Model
 const slotSchema = new mongoose.Schema({
@@ -14,19 +15,6 @@ const slotSchema = new mongoose.Schema({
 });
 
 const Slot = mongoose.model('Slot', slotSchema);
-
-// MongoDB Connection
-const clientOptions = { serverApi: { version: '1', strict: true, deprecationErrors: true } };
-
-async function connectToMongoDB() {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, clientOptions);
-    console.log("✅ Connected to MongoDB!");
-  } catch (error) {
-    console.error("❌ MongoDB connection error:", error.message);
-    process.exit(1); // Exit the process if the connection fails
-  }
-}
 
 // Send email alert
 function sendEmailNotification(slots) {
@@ -69,7 +57,7 @@ function sendEmailNotification(slots) {
 // Fetch slots for a single date
 async function fetchAvailableSlotsForDate(dateString) {
   try {
-    const response = await axios.get(`${BASE_URL}${dateString}`);
+    const response = await axios.get(`${process.env.BASE_URL}${dateString}`);
     const data = response.data;
 
     const dateKey = Object.keys(data.dates)[0];
@@ -149,12 +137,24 @@ async function checkForNewSlots() {
   }
 }
 
-// Run the script
+// MongoDB connection and execution
 async function run() {
-  await connectToMongoDB();
-  await checkForNewSlots();
-  await mongoose.disconnect();
-  console.log("✅ MongoDB connection closed.");
+  try {
+    // Connect to MongoDB
+    await mongoose.connect(process.env.MONGO_URI, clientOptions);
+    await mongoose.connection.db.admin().command({ ping: 1 });
+    console.log("✅ Pinged your deployment. Successfully connected to MongoDB!");
+
+    // Run your main function
+    await checkForNewSlots();
+  } catch (error) {
+    console.error("❌ Error during execution:", error.message);
+  } finally {
+    // Ensure the MongoDB connection is closed
+    await mongoose.disconnect();
+    console.log("✅ MongoDB connection closed.");
+  }
 }
 
+// Execute the script
 run().catch(console.error);
